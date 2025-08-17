@@ -1,10 +1,22 @@
 import React, { useRef, useState } from "react";
 import Header from "./Header";
 import { checkValidData } from "../utils/validate";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
+} from "firebase/auth";
+import { auth } from "../utils/firebase";
+import { useNavigate } from "react-router-dom";
+import { addUser } from "../utils/userSlice";
+import { useDispatch } from "react-redux";
 
 const Login = () => {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [isSignInForm, setIsSignInForm] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const userName = useRef(null);
   const email = useRef(null);
   const password = useRef(null);
   const toggleSignInFrom = () => {
@@ -12,11 +24,51 @@ const Login = () => {
   };
   const handleButtonCkick = (event) => {
     event.preventDefault();
-    // Validate the form data
-    console.log(email.current.value);
-    console.log(password.current.value);
+
     const message = checkValidData(email.current.value, password.current.value);
     setErrorMessage(message);
+    if (message) return;
+
+    if (!isSignInForm) {
+      createUserWithEmailAndPassword(
+        auth,
+        email.current.value,
+        password.current.value
+      )
+        .then((result) => {
+          const user = result.user;
+          updateProfile(user, {
+            displayName: userName.current.value,
+            photoURL: "",
+          })
+            .then(() => {
+              const { uid, email, displayName } = auth.currentUser;
+              dispatch(addUser({ uid, email, displayName }));
+              navigate("/browse");
+            })
+            .catch((error) => {
+              setErrorMessage(error.message);
+            });
+        })
+        .catch((error) => {
+          console.log("ERORR ->", error);
+          setErrorMessage(error.message);
+        });
+    } else {
+      signInWithEmailAndPassword(
+        auth,
+        email.current.value,
+        password.current.value
+      )
+        .then((result) => {
+          console.log("RESULT ->", result);
+          navigate("/browse");
+        })
+        .catch((error) => {
+          console.log("ERORR ->", error);
+          setErrorMessage(error.message);
+        });
+    }
   };
   return (
     <div className="">
@@ -37,6 +89,7 @@ const Login = () => {
           <div>
             <label className="text-sm  ">Full Name</label>
             <input
+              ref={userName}
               type="text"
               placeholder="Full Name"
               className="p-3 w-full mb-4 bg-[#333333] rounded-sm placeholder-gray-400 "
